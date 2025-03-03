@@ -13,20 +13,42 @@ def start_connection(host, port):
 
 
 def send_file(filename, client):
-    chunk_size = 4096
+    """Send a file to the client."""
+    if not os.path.isfile(filename):
+        print(f'Error: File "{filename}" not found!')
+        client.send(b'FILE_NOT_FOUND')
+        return
 
-    with open(filename, 'rb') as f:
-        while chunk := f.read(chunk_size):
-            client.sendall(chunk)
-        client.shutdown(socket.SHUT_WR)
+    client.send(b'FILE_OK')  # Notify client that file exists
+    file_size = os.path.getsize(filename)
+    client.send(str(file_size).encode())  # Send file size
+
+    with open(filename, "rb") as f:
+        while chunk := f.read(4096):  # Send in chunks
+            client.send(chunk)
+
+    print(f'File "{filename}" sent successfully!')
 
 
 def recv_file(filename, client):
-    chunk_size = 4096
+    """Receive a file from the client."""
+    status = client.recv(10).decode()  # Check if the file exists
+    if status == 'FILE_NOT_FOUND':
+        print(f'Error: Remote file "{filename}" not found!')
+        return
 
-    with open(filename, 'wb') as f:
-        while chunk := client.recv(chunk_size):
+    file_size = int(client.recv(20).decode())  # Get file size
+    received = 0
+
+    with open(filename, "wb") as f:
+        while received < file_size:
+            chunk = client.recv(4096)
+            if not chunk:
+                break
             f.write(chunk)
+            received += len(chunk)
+
+    print(f'File "{filename}" received successfully!')
 
 
 def run_command(command):
