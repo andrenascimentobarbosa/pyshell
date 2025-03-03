@@ -5,10 +5,6 @@ import subprocess
 import traceback
 import os
 
-from duplicity.cli_data import command_args_expected
-from ldap3.core.exceptions import exception_table
-from uaclient.lock import clear_lock_file_if_present
-
 
 def start_connection(host, port):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
