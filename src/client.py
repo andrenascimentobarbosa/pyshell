@@ -2,6 +2,7 @@ import socket
 import subprocess
 import traceback
 import os
+import threading
 
 
 def start_connection(host, port):
@@ -11,15 +12,17 @@ def start_connection(host, port):
 
 
 def send_file(filename, client):
+    client.send('[client] sending....'.encode())
     with open(filename, 'rb') as f:
-        chunk = f.read(1024)
+        chunk = f.read(4096)
         while chunk:
             client.send(chunk)
-            chunk = f.read(1024)
+            chunk = f.read(4096)
         f.close()
 
 
 def recv_file(filename, client):
+    client.send('[client] receiving...'.encode())
     with open(filename, 'wb') as f:
         while True:
             data = client.recv(4096)
@@ -34,6 +37,14 @@ def run_command(command):
     output = result.stdout + result.stderr
     return output
 
+def handle_file_transfer(command, client):
+    if command.startswith('download '):
+        filename = command[9:].strip()
+        send_file(filename, client)
+    elif command.startswith('upload '):
+        filename = command[7:].strip()
+        recv_file(filename, client)
+
 
 def shell_session(client):
     exit_list = ['exit', 'break', 'close', 'bye', 'quit']
@@ -45,12 +56,10 @@ def shell_session(client):
                 continue
             if command.lower() in exit_list:
                 break
-            elif command.startswith('download '):
-                filename = command[9:].strip()
-                send_file(filename, client)
-            elif command.startswith('upload '):
-                filename = command[7:].strip()
-                recv_file(filename, client)
+            elif command.startswith(('download', 'upload')):
+                thread = threading.Thread(target=handle_file_transfer, args=(command, client))
+                thread.daemon = True
+                thread.start()
             elif command.startswith('cd '):
                 path = command[3:].strip()
                 try:
@@ -83,7 +92,7 @@ def shell_session(client):
         client.send(error_msg.encode())
     finally:
         client.close()
-
+        print('finally: connection closed.')
 
 def main():
     host = '127.0.0.1'

