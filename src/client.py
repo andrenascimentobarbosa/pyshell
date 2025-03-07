@@ -12,24 +12,17 @@ def start_connection(host, port):
 
 
 def send_file(filename, client):
-    client.send('[client] sending....'.encode())
-    with open(filename, 'rb') as f:
-        chunk = f.read(4096)
-        while chunk:
-            client.send(chunk)
-            chunk = f.read(4096)
-        f.close()
+    if os.path.exists(filename):
+        with open(filename, 'rb') as f:
+            client.sendall(f.read())
+    else:
+        client.send(b'ERROR: File not found')
 
 
 def recv_file(filename, client):
-    client.send('[client] receiving...'.encode())
     with open(filename, 'wb') as f:
-        while True:
-            data = client.recv(4096)
-            if not data:
-                break
-            f.write(data)
-        f.close()
+        data = client.recv(4096)
+        f.write(data)
 
 
 def run_command(command):
