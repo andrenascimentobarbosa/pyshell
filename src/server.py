@@ -17,19 +17,32 @@ def start_server(host, port):
     shell_session(client, addr, server)
 
 
+
+
 def send_file(filename, client):
-    if os.path.exists(filename):
-        client.send(b'FILE')
-        with open(filename, 'rb') as f:
-            client.sendall(f.read())
-    else:
-        client.send(b'ERROR: File not found')
+    with open(filename, 'rb') as f:
+        chunk = f.read(1024)
+        while chunk:
+            client.send(chunk)
+            chunk = f.read(1024)
+        f.close()
+
+
+
+
 
 
 def recv_file(filename, client):
     with open(filename, 'wb') as f:
-        data = client.recv(4096)
-        f.write(data)
+        while True:
+            data = client.recv(4096)
+            if not data:
+                break
+            f.write(data)
+        f.close()
+
+
+
 
 
 def shell_session(client, addr, server):
