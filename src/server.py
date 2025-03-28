@@ -1,5 +1,6 @@
 import socket
 import os
+import struct
 import traceback
 import subprocess
 import threading
@@ -20,26 +21,31 @@ def start_server(host, port):
 
 
 def send_file(filename, client):
-    with open(filename, 'rb') as f:
-        chunk = f.read(1024)
-        while chunk:
-            client.send(chunk)
-            chunk = f.read(1024)
-        f.close()
-
+    if os.path.exists(filename):
+        file_size = os.path.getsize(filename)
+        client.send(struct.pack('!Q', file_size))  # Send file size (8 bytes)
+        
+        with open(filename, 'rb') as f:
+            while chunk := f.read(4096):
+                client.sendall(chunk)
+    else:
+        client.send(b'ERROR: File not found')
 
 
 
 
 
 def recv_file(filename, client):
+    file_size = struct.unpack('!Q', client.recv(8))[0]  # Receive file size (8 bytes)
+    received = 0
+
     with open(filename, 'wb') as f:
-        while True:
+        while received < file_size:
             data = client.recv(4096)
             if not data:
                 break
             f.write(data)
-        f.close()
+            received += len(data)
 
 
 
