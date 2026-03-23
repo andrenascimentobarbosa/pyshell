@@ -18,8 +18,6 @@ def start_server(host, port):
     shell_session(client, addr, server)
 
 
-
-
 def send_file(filename, client):
     if os.path.exists(filename):
         file_size = os.path.getsize(filename)
@@ -46,9 +44,6 @@ def recv_file(filename, client):
                 break
             f.write(data)
             received += len(data)
-
-
-
 
 
 def shell_session(client, addr, server):
