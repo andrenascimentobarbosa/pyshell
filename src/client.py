@@ -12,10 +12,6 @@ def start_connection(host, port):
     shell_session(client)
 
 
-
-
-
-
 def send_file(filename, client):
     if os.path.exists(filename):
         file_size = os.path.getsize(filename)
@@ -26,11 +22,6 @@ def send_file(filename, client):
                 client.sendall(chunk)
     else:
         client.send(b'ERROR: File not found')
-
-
-
-
-
 
 
 def recv_file(filename, client):
@@ -44,12 +35,6 @@ def recv_file(filename, client):
                 break
             f.write(data)
             received += len(data)
-
-
-
-
-
-
 
 
 def run_command(command):
